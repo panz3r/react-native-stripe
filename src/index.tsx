@@ -1,9 +1,5 @@
-import { NativeModules } from 'react-native';
+import { RNStripeManager } from './RNStripeManager';
 
-type StripeType = {
-  multiply(a: number, b: number): Promise<number>;
-};
+export const ReactNativeStripe = new RNStripeManager();
 
-const { Stripe } = NativeModules;
-
-export default Stripe as StripeType;
+export * from './types';
