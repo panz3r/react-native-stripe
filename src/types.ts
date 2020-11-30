@@ -1,4 +1,7 @@
-export type RNStripeCardData = {
+/**
+ * This type represents a payment method that a user can select and use to pay.
+ */
+export type RNStripePaymentOption = {
   /** A string describing the payment method, such as “Apple Pay” or “Visa 4242”. */
   label?: string;
 
@@ -140,16 +143,6 @@ export type RNStripeCustomerContextOptions = {
   ephemeralKeyProviderFn: RNStripeEphemeralKeyProviderFn;
 };
 
-export type RNStripeManagetStatusCallback = (status: string) => void;
-
-export type RNStripePaymentMethodChangeListener = (
-  cardData: RNStripeCardData
-) => void;
-
-export type RNStripeShippingAddressChangeListener = (
-  address: RNStripeAddress
-) => void;
-
 /**
  * Defines a shipping method for delivering physical goods.
  */
@@ -226,6 +219,26 @@ export type RNStripePaymentConfiguration = {
   requiredShippingAddressFields?: RNStripeContactField[];
 };
 
+export type RNStripePaymentContextSnapshot = {
+  /** The user’s currently selected payment option. May be undefined. */
+  paymentMethod?: RNStripePaymentOption;
+
+  /**
+   * The user’s shipping address. May be undefined.
+   *
+   * You should not rely on the shipping information stored on the Stripe customer for order fulfillment, as your user may change this information if they make multiple purchases.
+   * We recommend adding shipping information when you create a charge (which can also help prevent fraud), or saving it to your own database. https://stripe.com/docs/api/payment_intents/create#create_payment_intent-shipping
+   *
+   * @note by default, your user will still be prompted to verify a prefilled shipping address.
+   * To change this behavior, you can set `verifyPrefilledShippingAddress` to `false` in your `RNStripePaymentConfiguration`.
+   *
+   */
+  shippingAddress?: RNStripeAddress;
+
+  /** The user’s currently selected shipping method. May be undefined. */
+  shippingMethod?: RNStripeShippingMethod;
+};
+
 export type RNStripePaymentContextOptions = {
   /**
    * All the options you can set or change around a payment.
@@ -236,16 +249,11 @@ export type RNStripePaymentContextOptions = {
   paymentContextOptions?: RNStripePaymentConfiguration;
 
   /**
-   * Listener function called each time the PaymentMethod associated with the active PaymentContext changes.
+   * Listener function called each time the PaymentContext changes.
    */
-  paymentMethodChangeListener: RNStripePaymentMethodChangeListener;
-
-  /**
-   * Listener function called each time the shipping address associated with the active PaymentContext changes.
-   *
-   * Required only if you need to listen to changes to shipping address (e.g. by calling presentShippingView or pushShippingView).
-   */
-  shippingAddressChangeListener?: RNStripeShippingAddressChangeListener; // TODO: Remove
+  paymentContextUpdateListener: (
+    paymenyContext: RNStripePaymentContextSnapshot
+  ) => void;
 
   /**
    * This function is called after the user enters a shipping address.

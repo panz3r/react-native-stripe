@@ -7,7 +7,6 @@ import {
 
 import type {
   RNStripeAddress,
-  RNStripeCardData,
   RNStripeEphemeralKeyProviderFn,
   RNStripeManagerInitOptions,
   RNStripePaymentContextOptions,
@@ -92,27 +91,21 @@ export class RNStripeManager {
    */
   async initPaymentContext({
     paymentContextOptions = {},
-    paymentMethodChangeListener,
-    shippingAddressChangeListener,
+    paymentContextUpdateListener,
     shippingAddressValidator,
   }: RNStripePaymentContextOptions): Promise<boolean> {
     this.unsubscribePaymentMethodChanges();
     // Subscribe payment context change listener (passed as option)
     this.paymentMethodSubscription = this.stripeEventEmitter.addListener(
-      'RNStripeSelectedPaymentMethodDidChange',
-      (cardData: RNStripeCardData) => paymentMethodChangeListener(cardData)
+      'RNStripePaymentContextDidChange',
+      paymentContextUpdateListener
     );
 
     this.unsubscribeShippingInfoChanges();
+    // Subscribe payment context change listener (passed as option)
     this.shippingInfoSubscription = this.stripeEventEmitter.addListener(
-      'RNStripeShippingInfoDidChange',
+      'RNStripeValidateShippingInfo',
       async (address: RNStripeAddress) => {
-        // Notify shipping info change listener (passed as option)
-        // TODO: Remove notifications -> address will be returned as part of paymentMethodChangeListener value
-        if (shippingAddressChangeListener) {
-          shippingAddressChangeListener(address);
-        }
-
         // Validate ShippingAddress
         if (shippingAddressValidator) {
           try {
