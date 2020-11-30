@@ -23,11 +23,11 @@ RCT_EXPORT_MODULE()
 - (NSArray<NSString *> *)supportedEvents
 {
     return @[
+        @"RNStripePaymentContextDidChange",
+        @"RNStripePaymentIntentStatusChanged",
         @"RNStripeRequestedCustomerKey",
         @"RNStripeRequestedPaymentIntentClientSecret",
-        @"RNStripeSelectedPaymentMethodDidChange",
-        @"RNStripeShippingInfoDidChange",
-        @"RNStripePaymentIntentStatusChanged"
+        @"RNStripeValidateShippingInfo"
     ];
 }
 
@@ -365,20 +365,52 @@ RCT_EXPORT_METHOD(shippingAddressIsInvalid:(NSString * _Nullable) errorMessage
 {
     NSLog(@"RNStripe: paymentContextDidChange");
     
-    // TODO: Notify RNStripePaymentContextDidChange instead of RNStripeSelectedPaymentMethodDidChange
-    //  The event should countain all PaymentContext informations (PaymentMethod, ShippingAddress, ShippingMethod, etc...)
+    NSMutableDictionary *paymentContextSnapshot = [[NSMutableDictionary alloc] init];
     
     // Checks if a selected method is available
     if (paymentContext.selectedPaymentOption != nil) {
-        // Send updated info to JS
-        [self sendEventWithName:@"RNStripeSelectedPaymentMethodDidChange"
-                           body:@{
-                               @"label": paymentContext.selectedPaymentOption.label,
-                               @"image": [self UIImageToBase64:paymentContext.selectedPaymentOption.image],
-                               @"templateImage": [self UIImageToBase64:paymentContext.selectedPaymentOption.templateImage],
-                               @"isReusable": @(paymentContext.selectedPaymentOption.isReusable),
-                           }];
+        id<STPPaymentOption> paymentMethod = paymentContext.selectedPaymentOption;
+        [paymentContextSnapshot setObject:@{
+            @"label": paymentMethod.label,
+            @"image": [self UIImageToBase64:paymentMethod.image],
+            @"templateImage": [self UIImageToBase64:paymentMethod.templateImage],
+            @"isReusable": @(paymentMethod.isReusable),
+        }
+                                   forKey:@"paymentMethod"];
     }
+    
+    // Checks if a shipping address is available
+    if (paymentContext.shippingAddress != nil) {
+        STPAddress *address = paymentContext.shippingAddress;
+        [paymentContextSnapshot setObject:@{
+            @"name": (address.name) ? address.name : @"",
+            @"phone": (address.phone) ? address.phone : @"",
+            @"email": (address.email) ? address.email : @"",
+            @"line1": (address.line1) ? address.line1 : @"",
+            @"line2": (address.line2) ? address.line2 : @"",
+            @"city": (address.city) ? address.city : @"",
+            @"postalCode": (address.postalCode) ? address.postalCode : @"",
+            @"state": (address.state) ? address.state : @"",
+            @"country": (address.country) ? address.country : @""
+        }
+                                   forKey:@"shippingAddress"];
+    }
+    
+    // Checks if a shipping method has been selected
+    if (paymentContext.selectedShippingMethod != nil) {
+        PKShippingMethod *shippingMethod = paymentContext.selectedShippingMethod;
+        [paymentContextSnapshot setObject:@{
+            @"identifier": (shippingMethod.identifier) ? shippingMethod.identifier : @"",
+            @"label": (shippingMethod.label) ? shippingMethod.label : @"",
+            @"amount": (shippingMethod.amount) ? [shippingMethod.amount stringValue] : @"",
+            @"detail": (shippingMethod.detail) ? shippingMethod.detail : @"",
+        }
+                                   forKey:@"shippingMethod"];
+    }
+    
+    // Send updated info to JS
+    [self sendEventWithName:@"RNStripePaymentContextDidChange"
+                       body:paymentContextSnapshot];
 }
 
 - (void)paymentContext:(STPPaymentContext *) paymentContext
@@ -388,7 +420,7 @@ didUpdateShippingAddress:(STPAddress *) address
     NSLog(@"RNStripe: paymentContextDidUpdateShippingAddress");
     
     // Send event to JS to allow address validation/notifications
-    [self sendEventWithName:@"RNStripeShippingInfoDidChange"
+    [self sendEventWithName:@"RNStripeValidateShippingInfo"
                        body:@{
                            @"name": (address.name) ? address.name : @"",
                            @"phone": (address.phone) ? address.phone : @"",
