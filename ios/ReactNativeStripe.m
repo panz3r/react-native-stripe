@@ -3,13 +3,15 @@
 #import <React/RCTConvert.h>
 
 @implementation ReactNativeStripe {
-    STPJSONResponseCompletionBlock customerKeyCompletionBlock;
-    
     STPCustomerContext *customerContext;
     
     STPPaymentContext *paymentContext;
     
     NSString *paymentIntentClientSecret;
+    
+    STPJSONResponseCompletionBlock customerKeyCompletionBlock;
+    
+    STPShippingMethodsCompletionBlock shippingMethodsCompletionBlock;
     
     RCTPromiseResolveBlock requestPaymentPromiseResolver;
     
@@ -24,6 +26,7 @@ RCT_EXPORT_MODULE()
         @"RNStripeRequestedCustomerKey",
         @"RNStripeRequestedPaymentIntentClientSecret",
         @"RNStripeSelectedPaymentMethodDidChange",
+        @"RNStripeShippingInfoDidChange",
         @"RNStripePaymentIntentStatusChanged"
     ];
 }
@@ -97,8 +100,7 @@ RCT_EXPORT_METHOD(initPaymentContext:(NSDictionary *) options
     if (options[@"requiredShippingAddressFields"] != nil) {
         NSArray *requiredShippingAddressFieldsOpt = options[@"requiredShippingAddressFields"];
         NSMutableSet<STPContactField> *requiredShippingAddressFields = [[NSMutableSet alloc] init];
-        for (int i=0; i < requiredShippingAddressFieldsOpt.count; i++) {
-            NSString *shippingAddressField = requiredShippingAddressFieldsOpt[i];
+        for (NSString *shippingAddressField in requiredShippingAddressFieldsOpt) {
             if ([shippingAddressField isEqualToString:@"name"]) {
                 [requiredShippingAddressFields addObject:STPContactFieldName];
             } else if ([shippingAddressField isEqualToString:@"emailAddress"]) {
@@ -283,6 +285,69 @@ RCT_EXPORT_METHOD(clearCachedCustomer:(RCTPromiseResolveBlock) resolve
 }
 
 /*
+ * ShippingAddress methods
+ */
+
+RCT_EXPORT_METHOD(shippingAddressIsValid:(NSArray * _Nullable) shippingMethods
+                  resolver:(RCTPromiseResolveBlock) resolve
+                  rejecter:(RCTPromiseRejectBlock) reject)
+{
+    NSLog(@"RNStripe: shippingAddressIsValid");
+    
+    if (shippingMethodsCompletionBlock == nil) {
+        return reject(@"RNStripeShippingAddressValidationFailed", @"shippingAddressIsValid has been called before a shipping method has been created.", nil);
+    }
+    
+    NSMutableArray<PKShippingMethod *> *pkShippingMethods = nil;
+    if (shippingMethods != nil) {
+        pkShippingMethods = [[NSMutableArray alloc] initWithCapacity:shippingMethods.count];
+        for (NSDictionary *shippingMethod in shippingMethods) {
+            PKShippingMethod *pkShippingMethod = [PKShippingMethod new];
+            pkShippingMethod.amount = [NSDecimalNumber decimalNumberWithString:shippingMethod[@"amount"]];
+            pkShippingMethod.label = shippingMethod[@"label"];
+            pkShippingMethod.detail = shippingMethod[@"detail"];
+            pkShippingMethod.identifier = shippingMethod[@"identifier"];
+            
+            [pkShippingMethods addObject:pkShippingMethod];
+        }
+    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self->shippingMethodsCompletionBlock(STPShippingStatusValid, nil, pkShippingMethods, nil);
+        self->shippingMethodsCompletionBlock = nil;
+        
+        resolve(@YES);
+    });
+}
+
+RCT_EXPORT_METHOD(shippingAddressIsInvalid:(NSString * _Nullable) errorMessage
+                  resolver:(RCTPromiseResolveBlock) resolve
+                  rejecter:(RCTPromiseRejectBlock) reject)
+{
+    NSLog(@"RNStripe: shippingAddressIsInvalid");
+    
+    if (shippingMethodsCompletionBlock == nil) {
+        return reject(@"RNStripeShippingAddressValidationFailed", @"shippingAddressIsInvalid has been called before a shipping method has been created.", nil);
+    }
+    
+    NSError *error = nil;
+    if (errorMessage != nil) {
+        error = [NSError errorWithDomain:@"RNStripe"
+                                    code:-102
+                                userInfo:@{
+                                    NSLocalizedDescriptionKey: NSLocalizedString(errorMessage, errorMessage),
+                                }];
+    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self->shippingMethodsCompletionBlock(STPShippingStatusInvalid, error, nil, nil);
+        self->shippingMethodsCompletionBlock = nil;
+        
+        resolve(@YES);
+    });
+}
+
+/*
  * STPPaymentContextDelegate
  */
 
@@ -299,6 +364,9 @@ RCT_EXPORT_METHOD(clearCachedCustomer:(RCTPromiseResolveBlock) resolve
 - (void)paymentContextDidChange:(STPPaymentContext *) paymentContext
 {
     NSLog(@"RNStripe: paymentContextDidChange");
+    
+    // TODO: Notify RNStripePaymentContextDidChange instead of RNStripeSelectedPaymentMethodDidChange
+    //  The event should countain all PaymentContext informations (PaymentMethod, ShippingAddress, ShippingMethod, etc...)
     
     // Checks if a selected method is available
     if (paymentContext.selectedPaymentOption != nil) {
@@ -319,32 +387,21 @@ didUpdateShippingAddress:(STPAddress *) address
 {
     NSLog(@"RNStripe: paymentContextDidUpdateShippingAddress");
     
-    // TODO: Send event to JS to allow address validation
-    completion(STPShippingStatusValid, nil, nil, nil);
-}
-
-- (void)paymentContext:(STPPaymentContext *) paymentContext
-   didFinishWithStatus:(STPPaymentStatus) status
-                 error:(NSError *) error {
-    NSLog(@"RNStripe: paymentContextDidFinishWithStatusError");
+    // Send event to JS to allow address validation/notifications
+    [self sendEventWithName:@"RNStripeShippingInfoDidChange"
+                       body:@{
+                           @"name": (address.name) ? address.name : @"",
+                           @"phone": (address.phone) ? address.phone : @"",
+                           @"email": (address.email) ? address.email : @"",
+                           @"line1": (address.line1) ? address.line1 : @"",
+                           @"line2": (address.line2) ? address.line2 : @"",
+                           @"city": (address.city) ? address.city : @"",
+                           @"postalCode": (address.postalCode) ? address.postalCode : @"",
+                           @"state": (address.state) ? address.state : @"",
+                           @"country": (address.country) ? address.country : @""
+                       }];
     
-    if (requestPaymentPromiseResolver != nil && requestPaymentPromiseRejecter != nil) {
-        switch (status) {
-            case STPPaymentStatusSuccess:
-                requestPaymentPromiseResolver(@YES);
-                break;
-                
-            case STPPaymentStatusError:
-                requestPaymentPromiseRejecter(@"RNStripeRequestPaymentFailed", error.localizedDescription, error);
-                break;
-                
-            case STPPaymentStatusUserCancellation:
-                requestPaymentPromiseResolver(@NO); // Do nothing
-        }
-        
-        requestPaymentPromiseResolver = nil;
-        requestPaymentPromiseRejecter = nil;
-    }
+    shippingMethodsCompletionBlock = completion;
 }
 
 - (void)paymentContext:(nonnull STPPaymentContext *) paymentContext
@@ -387,6 +444,30 @@ didCreatePaymentResult:(nonnull STPPaymentResult *) paymentResult
         
         self->paymentIntentClientSecret = nil;
     }];
+}
+
+- (void)paymentContext:(STPPaymentContext *) paymentContext
+   didFinishWithStatus:(STPPaymentStatus) status
+                 error:(NSError *) error {
+    NSLog(@"RNStripe: paymentContextDidFinishWithStatusError");
+    
+    if (requestPaymentPromiseResolver != nil && requestPaymentPromiseRejecter != nil) {
+        switch (status) {
+            case STPPaymentStatusSuccess:
+                requestPaymentPromiseResolver(@YES);
+                break;
+                
+            case STPPaymentStatusError:
+                requestPaymentPromiseRejecter(@"RNStripeRequestPaymentFailed", error.localizedDescription, error);
+                break;
+                
+            case STPPaymentStatusUserCancellation:
+                requestPaymentPromiseResolver(@NO); // Do nothing
+        }
+        
+        requestPaymentPromiseResolver = nil;
+        requestPaymentPromiseRejecter = nil;
+    }
 }
 
 - (void)paymentContext:(STPPaymentContext *) paymentContext
