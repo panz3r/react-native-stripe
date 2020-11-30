@@ -5,8 +5,9 @@ import { Button, Image, StyleSheet, Text, View } from 'react-native';
 import { ReactNativeStripe } from '@panz3r/react-native-stripe';
 import type {
   RNStripeAddress,
-  RNStripeCardData,
   RNStripeEphemeralKeyProviderFn,
+  RNStripePaymentContextSnapshot,
+  RNStripePaymentOption,
   RNStripeShippingMethod,
   RNStripeTheme,
 } from '@panz3r/react-native-stripe';
@@ -46,17 +47,19 @@ const testStripeTheme: RNStripeTheme = {
 };
 
 export default function App() {
-  const [paymentMethod, setPaymentMethod] = useState<RNStripeCardData>();
-  const paymentMethodChangeListener = useCallback(
-    (cardData: RNStripeCardData) => {
-      setPaymentMethod(cardData);
-    },
-    []
-  );
+  const [paymentMethod, setPaymentMethod] = useState<RNStripePaymentOption>();
+  const [shippingAddress, setShippingAddress] = useState<RNStripeAddress>();
+  const [
+    shippingMethod,
+    setShippingMethod,
+  ] = useState<RNStripeShippingMethod>();
 
-  const shippingAddressChangeListener = useCallback(
-    (address: RNStripeAddress) => {
-      console.log('Address', address);
+  const paymentContextUpdateListener = useCallback(
+    (paymentContext: RNStripePaymentContextSnapshot) => {
+      console.log('paymentContext', paymentContext);
+      setPaymentMethod(paymentContext.paymentMethod);
+      setShippingAddress(paymentContext.shippingAddress);
+      setShippingMethod(paymentContext.shippingMethod);
     },
     []
   );
@@ -64,17 +67,17 @@ export default function App() {
   const shippingAddressValidator = useCallback(
     async (address: RNStripeAddress) => {
       const upsGround: RNStripeShippingMethod = {
-        amount: '0',
-        label: 'UPS Ground',
-        detail: 'Arrives in 3-5 days',
         identifier: 'ups_ground',
+        label: 'UPS Ground',
+        amount: '0',
+        detail: 'Arrives in 3-5 days',
       };
 
       const fedEx: RNStripeShippingMethod = {
-        amount: '5.99',
-        label: 'FedEx',
-        detail: 'Arrives tomorrow',
         identifier: 'fedex',
+        label: 'FedEx',
+        amount: '5.99',
+        detail: 'Arrives tomorrow',
       };
 
       if (address.country === 'US') {
@@ -106,8 +109,7 @@ export default function App() {
         }
 
         return ReactNativeStripe.initPaymentContext({
-          paymentMethodChangeListener,
-          shippingAddressChangeListener,
+          paymentContextUpdateListener,
           shippingAddressValidator,
           paymentContextOptions: {
             requiredBillingAddressFields: 'none',
@@ -127,11 +129,7 @@ export default function App() {
       .catch((err) => {
         console.error('Error during RNStripe initialization', err);
       });
-  }, [
-    paymentMethodChangeListener,
-    shippingAddressChangeListener,
-    shippingAddressValidator,
-  ]);
+  }, [paymentContextUpdateListener, shippingAddressValidator]);
 
   const handleChooseCard = useCallback(() => {
     ReactNativeStripe.presentPaymentOptionsView();
@@ -157,7 +155,7 @@ export default function App() {
     <View style={styles.container}>
       {paymentMethod ? (
         <>
-          <Text>Current PaymentMethod</Text>
+          <Text>Current payment method</Text>
 
           <View style={styles.paymentMethodContainer}>
             <Image
@@ -171,6 +169,28 @@ export default function App() {
       ) : null}
 
       <Button title="Show Card Picker" onPress={handleChooseCard} />
+
+      {shippingAddress ? (
+        <>
+          <Text>Current shipping address</Text>
+          <Text>{shippingAddress.name}</Text>
+          <Text>{shippingAddress.line1}</Text>
+          <Text>{shippingAddress.line2}</Text>
+          <Text>
+            {shippingAddress.postalCode} {shippingAddress.city}{' '}
+            {shippingAddress.state} {shippingAddress.country}
+          </Text>
+        </>
+      ) : null}
+
+      {shippingMethod ? (
+        <>
+          <Text>Current shipping method</Text>
+          <Text>{shippingMethod.label}</Text>
+          <Text>{shippingMethod.amount}</Text>
+          <Text>{shippingMethod.detail}</Text>
+        </>
+      ) : null}
 
       <Button title="Show Shipping Picker" onPress={handleChooseShipping} />
 
