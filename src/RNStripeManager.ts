@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 
 import type {
+  RNStripeAddress,
   RNStripeCardData,
   RNStripeEphemeralKeyProviderFn,
   RNStripeManagerInitOptions,
@@ -92,7 +93,8 @@ export class RNStripeManager {
   async initPaymentContext({
     paymentContextOptions = {},
     paymentMethodChangeListener,
-    shippingInfoChangeListener,
+    shippingAddressChangeListener,
+    shippingAddressValidator,
   }: RNStripePaymentContextOptions): Promise<boolean> {
     this.unsubscribePaymentMethodChanges();
     // Subscribe payment context change listener (passed as option)
@@ -102,13 +104,28 @@ export class RNStripeManager {
     );
 
     this.unsubscribeShippingInfoChanges();
-    if (shippingInfoChangeListener) {
-      // Subscribe shipping info change listener (passed as option)
-      this.shippingInfoSubscription = this.stripeEventEmitter.addListener(
-        'RNStripeShippingInfoDidChange',
-        (cardData: RNStripeCardData) => shippingInfoChangeListener(cardData)
-      );
-    }
+    this.shippingInfoSubscription = this.stripeEventEmitter.addListener(
+      'RNStripeShippingInfoDidChange',
+      async (address: RNStripeAddress) => {
+        // Notify shipping info change listener (passed as option)
+        // TODO: Remove notifications -> address will be returned as part of paymentMethodChangeListener value
+        if (shippingAddressChangeListener) {
+          shippingAddressChangeListener(address);
+        }
+
+        // Validate ShippingAddress
+        if (shippingAddressValidator) {
+          try {
+            const shippingMethods = await shippingAddressValidator(address);
+            ReactNativeStripe.shippingAddressIsValid(shippingMethods);
+          } catch (error) {
+            ReactNativeStripe.shippingAddressIsInvalid(error?.message || null);
+          }
+        } else {
+          ReactNativeStripe.shippingAddressIsValid(null);
+        }
+      }
+    );
 
     return ReactNativeStripe.initPaymentContext(paymentContextOptions);
   }

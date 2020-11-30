@@ -20,7 +20,37 @@ export type RNStripeCardData = {
   isReusable?: boolean;
 };
 
-export type RNStripeShippingInfo = any;
+/**
+ * Contains an address as represented by the Stripe API
+ */
+export type RNStripeAddress = {
+  /** The user’s full name (e.g. “Jane Doe”) */
+  name?: string;
+
+  /** The phone number of the address (e.g. “8885551212”) */
+  phone?: string;
+
+  /** The email of the address (e.g. “jane@doe.com”) */
+  email?: string;
+
+  /** The first line of the user’s street address (e.g. “123 Fake St”) */
+  line1?: string;
+
+  /** The apartment, floor number, etc of the user’s street address (e.g. “Apartment 1A”) */
+  line2?: string;
+
+  /** The city in which the user resides (e.g. “San Francisco”) */
+  city?: string;
+
+  /** The postal code in which the user resides (e.g. “90210”) */
+  postalCode?: string;
+
+  /** The state in which the user resides (e.g. “CA”) */
+  state?: string;
+
+  /** The ISO country code of the address (e.g. “US”) */
+  country?: string;
+};
 
 export type RNStripeTheme = {
   /**
@@ -116,9 +146,26 @@ export type RNStripePaymentMethodChangeListener = (
   cardData: RNStripeCardData
 ) => void;
 
-export type RNStripeShippingInfoChangeListener = (
-  shippingInfo: RNStripeShippingInfo
+export type RNStripeShippingAddressChangeListener = (
+  address: RNStripeAddress
 ) => void;
+
+/**
+ * Defines a shipping method for delivering physical goods.
+ */
+export type RNStripeShippingMethod = {
+  /** A short, localized description of the shipping method. */
+  label: string;
+
+  /** The shipping method cost as a string (e.g. "5.99"). */
+  amount: string;
+
+  /** A user-readable description of the shipping method. */
+  detail?: string;
+
+  /** A unique identifier for the shipping method, used by the app. */
+  identifier?: string;
+};
 
 export type RNStripeContactField =
   | 'name'
@@ -194,11 +241,27 @@ export type RNStripePaymentContextOptions = {
   paymentMethodChangeListener: RNStripePaymentMethodChangeListener;
 
   /**
-   * Listener function called each time the ShippingInfo associated with the active PaymentContext changes.
+   * Listener function called each time the shipping address associated with the active PaymentContext changes.
    *
    * Required only if you need to listen to changes to shipping address (e.g. by calling presentShippingView or pushShippingView).
    */
-  shippingInfoChangeListener?: RNStripeShippingInfoChangeListener;
+  shippingAddressChangeListener?: RNStripeShippingAddressChangeListener; // TODO: Remove
+
+  /**
+   * This function is called after the user enters a shipping address.
+   * Validate the returned address and determine the shipping methods available for that address.
+   *
+   * If the address is valid, resolve the promise with an array of `RNStripeShippingMethod`. If you don't need to collect a shipping method simply return `null`.
+   *
+   * If the address is invalid, reject the promise with an error message describing the issue with the address.
+   *
+   * @note Providing an error message is optional—if you omit it, the user will simply see an alert with the message "Invalid Shipping Address".
+   *
+   * @note if left `undefined` user inserted addresses will always be considered valid.
+   */
+  shippingAddressValidator?: (
+    address: RNStripeAddress
+  ) => Promise<RNStripeShippingMethod[] | null>;
 };
 
 /**
