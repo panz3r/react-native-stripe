@@ -4,8 +4,10 @@ import { Button, Image, StyleSheet, Text, View } from 'react-native';
 
 import { ReactNativeStripe } from '@panz3r/react-native-stripe';
 import type {
+  RNStripeAddress,
   RNStripeCardData,
   RNStripeEphemeralKeyProviderFn,
+  RNStripeShippingMethod,
   RNStripeTheme,
 } from '@panz3r/react-native-stripe';
 
@@ -52,6 +54,38 @@ export default function App() {
     []
   );
 
+  const shippingAddressChangeListener = useCallback(
+    (address: RNStripeAddress) => {
+      console.log('Address', address);
+    },
+    []
+  );
+
+  const shippingAddressValidator = useCallback(
+    async (address: RNStripeAddress) => {
+      const upsGround: RNStripeShippingMethod = {
+        amount: '0',
+        label: 'UPS Ground',
+        detail: 'Arrives in 3-5 days',
+        identifier: 'ups_ground',
+      };
+
+      const fedEx: RNStripeShippingMethod = {
+        amount: '5.99',
+        label: 'FedEx',
+        detail: 'Arrives tomorrow',
+        identifier: 'fedex',
+      };
+
+      if (address.country === 'US') {
+        return [upsGround, fedEx];
+      } else {
+        throw Error("We don't ship outside the US");
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     ReactNativeStripe.init({
       publishableKey,
@@ -73,12 +107,14 @@ export default function App() {
 
         return ReactNativeStripe.initPaymentContext({
           paymentMethodChangeListener,
+          shippingAddressChangeListener,
+          shippingAddressValidator,
           paymentContextOptions: {
             requiredBillingAddressFields: 'none',
             requiredShippingAddressFields: [
               'name',
-              'emailAddress',
-              'phoneNumber',
+              // 'emailAddress',
+              // 'phoneNumber',
               'postalAddress',
             ],
           },
@@ -91,7 +127,11 @@ export default function App() {
       .catch((err) => {
         console.error('Error during RNStripe initialization', err);
       });
-  }, [paymentMethodChangeListener]);
+  }, [
+    paymentMethodChangeListener,
+    shippingAddressChangeListener,
+    shippingAddressValidator,
+  ]);
 
   const handleChooseCard = useCallback(() => {
     ReactNativeStripe.presentPaymentOptionsView();
