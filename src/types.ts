@@ -206,6 +206,8 @@ export type RNStripePaymentConfiguration = {
    * These fields will all be present on the returned PaymentMethod from Stripe.
    *
    * @default 'postalCode'
+   *
+   * @note `name` option is not available on Android and defaults to `none`.
    */
   requiredBillingAddressFields?: 'none' | 'postalCode' | 'full' | 'name';
 
@@ -215,6 +217,10 @@ export type RNStripePaymentConfiguration = {
    * Leave undefined if shipping address is not required.
    *
    * @default undefined
+   *
+   * @note `name` and `country` are always required on Android
+   *
+   * @note `emailAddress` is not available on Android and won't be returned as part of RNStripePaymentContextSnapshot `shippingAddress`
    */
   requiredShippingAddressFields?: RNStripeContactField[];
 };
@@ -237,6 +243,14 @@ export type RNStripePaymentContextSnapshot = {
 
   /** The user’s currently selected shipping method. May be undefined. */
   shippingMethod?: RNStripeShippingMethod;
+
+  /**
+   * Whether the payment data is ready for making a charge. This can be used to
+   * set a buy button to enabled for prompt a user to fill in more information.
+   *
+   * @note always `true` on iOS.
+   */
+  isPaymentReadyToCharge: boolean;
 };
 
 export type RNStripePaymentContextOptions = {
