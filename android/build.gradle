@@ -1,6 +1,6 @@
 buildscript {
   // Buildscript is evaluated before everything else so we can't use getExtOrDefault
-  def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : project.properties['Stripe_kotlinVersion']
+  def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : project.properties['ReactNativeStripe_kotlinVersion']
 
   repositories {
     google()
@@ -18,32 +18,33 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 def getExtOrDefault(name) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['Stripe_' + name]
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['ReactNativeStripe_' + name]
 }
 
 def getExtOrIntegerDefault(name) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties['Stripe_' + name]).toInteger()
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties['ReactNativeStripe_' + name]).toInteger()
 }
 
 android {
   compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
   buildToolsVersion getExtOrDefault('buildToolsVersion')
   defaultConfig {
-    minSdkVersion 16
+    minSdkVersion 21
     targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
     versionCode 1
     versionName "1.0"
-    
   }
-  
+
   buildTypes {
     release {
       minifyEnabled false
     }
   }
+
   lintOptions {
     disable 'GradleCompatible'
   }
+
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
@@ -127,4 +128,7 @@ dependencies {
   // noinspection GradleDynamicVersion
   api 'com.facebook.react:react-native:+'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+
+  // Stripe Android SDK
+  implementation 'com.stripe:stripe-android:16.1.1'
 }
