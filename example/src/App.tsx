@@ -1,6 +1,17 @@
 import * as React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Image, StyleSheet, Text, View } from 'react-native';
+
+import {
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 import { ReactNativeStripe } from '@panz3r/react-native-stripe';
 import type {
@@ -11,6 +22,10 @@ import type {
   RNStripeShippingMethod,
   RNStripeTheme,
 } from '@panz3r/react-native-stripe';
+
+import { Colors } from './Colors';
+import { ExampleButton } from './ExampleButton';
+import { Header } from './Header';
 
 const ephemeralKeyProviderFn: RNStripeEphemeralKeyProviderFn = async (
   options
@@ -41,18 +56,20 @@ const paymentIntentClientSecretProviderFn = async (): Promise<string> => {
 const publishableKey = '<YOUR-STRIPE-PUBLISHABLE-KEY>';
 
 const testStripeTheme: RNStripeTheme = {
-  primaryForegroundColor: 'red',
-  accentColor: 'red',
-  errorColor: 'green',
+  primaryForegroundColor: Colors.primaryDark,
+  accentColor: Colors.primary,
 };
 
 export default function App() {
+  const isDarkMode = useColorScheme() === 'dark';
+
   const [paymentMethod, setPaymentMethod] = useState<RNStripePaymentOption>();
   const [shippingAddress, setShippingAddress] = useState<RNStripeAddress>();
   const [
     shippingMethod,
     setShippingMethod,
   ] = useState<RNStripeShippingMethod>();
+  const [isReadyToPay, setIsReadyToPay] = useState(false);
 
   const paymentContextUpdateListener = useCallback(
     (paymentContext: RNStripePaymentContextSnapshot) => {
@@ -60,6 +77,7 @@ export default function App() {
       setPaymentMethod(paymentContext.paymentMethod);
       setShippingAddress(paymentContext.shippingAddress);
       setShippingMethod(paymentContext.shippingMethod);
+      setIsReadyToPay(paymentContext.isPaymentReadyToCharge);
     },
     []
   );
@@ -145,75 +163,285 @@ export default function App() {
 
       const completed = await ReactNativeStripe.requestPayment(clientSecret);
 
-      console.log('Payment completed?', completed);
+      console.log('Payment completed', completed);
     } catch (err) {
       console.log('Error during requestPayment call', err);
     }
   }, []);
 
+  const styles = isDarkMode ? darkStyles : lightStyles;
+
   return (
-    <View style={styles.container}>
-      {paymentMethod ? (
-        <>
-          <Text>Current payment method</Text>
+    <>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
-          <View style={styles.paymentMethodContainer}>
-            <Image
-              source={{ uri: `data:image/png;base64,${paymentMethod.image}` }}
-              style={styles.paymentMethodImage}
-            />
+      <SafeAreaView style={styles.safeAreaView}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          style={styles.scrollView}
+        >
+          <Header />
 
-            <Text>{paymentMethod.label}</Text>
+          <View style={styles.body}>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Payment Method</Text>
+
+              <Text style={styles.sectionDescription}>
+                Open <Text style={styles.highlight}>Stripe</Text> payment
+                options view.
+              </Text>
+
+              <ExampleButton
+                title="Show Card Picker"
+                onPress={handleChooseCard}
+              />
+            </View>
+
+            {paymentMethod ? (
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionSubTitle}>
+                  Selected Payment Method
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Label:{' '}
+                  <Text style={styles.highlight}>{paymentMethod.label}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Image:{' '}
+                  <Image
+                    source={{
+                      uri: `data:image/png;base64,${paymentMethod.image}`,
+                    }}
+                    style={styles.paymentMethodImage}
+                  />
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Template Image:{' '}
+                  <MaskedView
+                    maskElement={
+                      <Image
+                        style={styles.paymentMethodTemplateMask}
+                        source={{
+                          uri: `data:image/png;base64,${paymentMethod.templateImage}`,
+                        }}
+                      />
+                    }
+                  >
+                    <View style={styles.paymentMethodTemplateView} />
+                  </MaskedView>
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Shipping Address & Method</Text>
+
+              <Text style={styles.sectionDescription}>
+                Open <Text style={styles.highlight}>Stripe</Text> shipping
+                options view.
+              </Text>
+
+              <ExampleButton
+                title="Show Shipping Picker"
+                onPress={handleChooseShipping}
+              />
+            </View>
+
+            {shippingAddress ? (
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionSubTitle}>
+                  Selected Shipping Address
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Name:{' '}
+                  <Text style={styles.highlight}>{shippingAddress.name}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Address:{' '}
+                  <Text style={styles.highlight}>{shippingAddress.line1}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Apt:{' '}
+                  <Text style={styles.highlight}>{shippingAddress.line2}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Postal Code:{' '}
+                  <Text style={styles.highlight}>
+                    {shippingAddress.postalCode}
+                  </Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  City:{' '}
+                  <Text style={styles.highlight}>{shippingAddress.city}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  State:{' '}
+                  <Text style={styles.highlight}>{shippingAddress.state}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Country:{' '}
+                  <Text style={styles.highlight}>
+                    {shippingAddress.country}
+                  </Text>
+                </Text>
+              </View>
+            ) : null}
+
+            {shippingMethod ? (
+              <View style={styles.sectionContainer}>
+                <Text style={styles.sectionSubTitle}>
+                  Selected Shipping Method
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Label:{' '}
+                  <Text style={styles.highlight}>{shippingMethod.label}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Amount:{' '}
+                  <Text style={styles.highlight}>{shippingMethod.amount}</Text>
+                </Text>
+
+                <Text style={styles.sectionDescription}>
+                  Detail:{' '}
+                  <Text style={styles.highlight}>{shippingMethod.detail}</Text>
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Payment</Text>
+
+              <Text style={styles.sectionDescription}>
+                Start <Text style={styles.highlight}>Stripe</Text> payment flow.
+              </Text>
+
+              <ExampleButton
+                title="Pay"
+                onPress={handlePay}
+                disabled={!isReadyToPay}
+              />
+            </View>
           </View>
-        </>
-      ) : null}
-
-      <Button title="Show Card Picker" onPress={handleChooseCard} />
-
-      {shippingAddress ? (
-        <>
-          <Text>Current shipping address</Text>
-          <Text>{shippingAddress.name}</Text>
-          <Text>{shippingAddress.line1}</Text>
-          <Text>{shippingAddress.line2}</Text>
-          <Text>
-            {shippingAddress.postalCode} {shippingAddress.city}{' '}
-            {shippingAddress.state} {shippingAddress.country}
-          </Text>
-        </>
-      ) : null}
-
-      {shippingMethod ? (
-        <>
-          <Text>Current shipping method</Text>
-          <Text>{shippingMethod.label}</Text>
-          <Text>{shippingMethod.amount}</Text>
-          <Text>{shippingMethod.detail}</Text>
-        </>
-      ) : null}
-
-      <Button title="Show Shipping Picker" onPress={handleChooseShipping} />
-
-      <Button title="Pay" onPress={handlePay} />
-    </View>
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
+const lightStyles = StyleSheet.create({
+  safeAreaView: {
+    backgroundColor: Colors.lighter,
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  paymentMethodContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  scrollView: {
+    backgroundColor: Colors.lighter,
+  },
+  body: {
+    backgroundColor: Colors.white,
+    borderTopStartRadius: 32,
+    borderTopEndRadius: 32,
+  },
+  sectionContainer: {
+    marginTop: 24,
+    paddingHorizontal: 24,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  sectionSubTitle: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: Colors.primaryDark,
+  },
+  sectionDescription: {
+    marginTop: 8,
+    fontSize: 18,
+    fontWeight: '400',
+    color: Colors.dark,
+  },
+  highlight: {
+    fontWeight: '700',
   },
   paymentMethodImage: {
-    height: 30,
-    width: 48,
+    height: 40,
+    width: 64,
     resizeMode: 'contain',
+  },
+  paymentMethodTemplateMask: {
+    height: 40,
+    width: 64,
+    resizeMode: 'cover',
+  },
+  paymentMethodTemplateView: {
+    height: 40,
+    width: 64,
+    backgroundColor: Colors.primary,
+  },
+});
+
+const darkStyles = StyleSheet.create({
+  safeAreaView: {
+    backgroundColor: Colors.darker,
+    flex: 1,
+  },
+  scrollView: {
+    backgroundColor: Colors.darker,
+  },
+  body: {
+    backgroundColor: Colors.dark,
+    borderTopStartRadius: 32,
+    borderTopEndRadius: 32,
+  },
+  sectionContainer: {
+    marginTop: 24,
+    paddingHorizontal: 24,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  sectionSubTitle: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: Colors.white,
+  },
+  sectionDescription: {
+    marginTop: 8,
+    fontSize: 18,
+    fontWeight: '400',
+    color: Colors.light,
+  },
+  highlight: {
+    fontWeight: '700',
+  },
+  paymentMethodImage: {
+    height: 40,
+    width: 64,
+    resizeMode: 'contain',
+  },
+  paymentMethodTemplateMask: {
+    height: 40,
+    width: 64,
+    resizeMode: 'cover',
+  },
+  paymentMethodTemplateView: {
+    height: 40,
+    width: 64,
+    backgroundColor: Colors.white,
   },
 });
