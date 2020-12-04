@@ -407,7 +407,9 @@ RCT_EXPORT_METHOD(shippingAddressIsInvalid:(NSString * _Nullable) errorMessage
         }
                                    forKey:@"shippingMethod"];
     }
-    
+
+    [paymentContextSnapshot setValue:@YES forKey:@"isPaymentReadyToCharge"];
+
     // Send updated info to JS
     [self sendEventWithName:@"RNStripePaymentContextDidChange"
                        body:paymentContextSnapshot];
