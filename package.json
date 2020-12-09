@@ -43,6 +43,9 @@
     "url": "https://github.com/panz3r/react-native-stripe/issues"
   },
   "homepage": "https://github.com/panz3r/react-native-stripe#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@commitlint/config-conventional": "^8.3.4",
     "@react-native-community/bob": "^0.16.2",
